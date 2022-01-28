@@ -64,17 +64,6 @@ def main(args):
 def treeRead(opts, targetPD):
     os.chdir(opts.folders)  
     print(os.getcwd())
-    # with open('export.newick', 'r') as file :
-    #     filedata = file.read()
-
-    # # Replace the target string
-    # filedata = filedata.replace('\'', '"')
-    # # filedata = filedata.replace(', ', '_').replace(': ', '')
-    
-    # # Write the file out again
-    # with open('export.newick', 'w') as file:
-    #     file.write(filedata)
-
 
     
     
