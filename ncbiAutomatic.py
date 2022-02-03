@@ -8,8 +8,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import time
-from ete3 import Tree, TreeStyle, NodeStyle, TextFace
+from ete3 import Tree, TreeStyle, NodeStyle, AttrFace, faces, TextFace
 from collections import defaultdict
+import shlex, subprocess
+from subprocess import CalledProcessError
 # from urllib.request import urlopen
 # from requests_html import HTMLSession
 # from bs4 import BeautifulSoup
@@ -64,7 +66,7 @@ def main(args):
 def treeRead(opts, targetPD):
     os.chdir(opts.folders)  
     print(os.getcwd())
-
+    metafile = opts.file
     
     
     t = Tree("export.newick", quoted_node_names=True, format=1)
@@ -73,35 +75,53 @@ def treeRead(opts, targetPD):
     pdname = find_target(targetPD, t)
     print()
     l = find_close(pdname,t)
-    t.prune(l[0:21])
+    t.prune(l[0:11])
+    a = [node.name.split(", ")[-1] for node in t.traverse("postorder") if node.name.split(", ")[-1]]
+    l_matching = findSRR(a, metafile)
+
+    #  add SRR number behind each isolate   
+    for node in t.traverse("postorder"):
+        # Do some analysis on node
+        if node.name.split(", ")[-1] in l_matching and l_matching[node.name.split(", ")[-1]] != "NULL":
+            node.name += ", "+l_matching[node.name.split(", ")[-1]] 
+            # if targetPD in node.name  :
+            #     node.add_face(TextFace(l_matching[node.name.split(", ")[-1]] , fsize=8, ftype = "Arial", fgcolor="green"),position="aligned", column=0)
+            # else: 
+            #     node.add_face(TextFace(l_matching[node.name.split(", ")[-1]] , fsize=8, ftype = "Arial", fgcolor="black"),position="aligned", column=0)
     print(t)
-    t.write(outfile="new_tree.nwk",format= 1)
+
+    # t.write(outfile="new_tree.nwk",format= 1)
+
     style = TreeStyle()
     style.mode = "r" # draw tree in circular mode
     style.show_leaf_name = True
     style.show_branch_length = True
-    style.branch_vertical_margin = 1
-    style.scale =  35
+    style.branch_vertical_margin = 5
+    style.scale =  30
     style.margin_top = 15
+    nst1 = NodeStyle()
+    nst1["bgcolor"] = "yellow"
+    nst2 = NodeStyle()
+    nst2["fgcolor"] = "red"
+    nst2["size"] = 10
 
     for n in t.traverse():
+        if n.is_leaf():
+        
 
-        nst1 = NodeStyle()
-        nst1["bgcolor"] = "yellow"
+            if targetPD in n.name  :
+                # name_face = AttrFace("name", fsize=12, fgcolor="#009000")
+                 # Adds the name face to the image at the preferred position
+                # n.add_face_to_node(name_face, column=0)
+                # faces.add_face_to_node(nameFace, n, column=0)
+                n.set_style(nst1)
 
-        nst2 = NodeStyle()
-        nst2["fgcolor"] = "red"
-        nst2["size"] = 10
-
-        if n.name == pdname :
-            n.set_style(nst1)
-
-        if "clinical" in n.name and n.name != pdname:
-            n.set_style(nst2)
+            if "clinical" in n.name and targetPD not in n.name:
+                n.set_style(nst2)
         
     # add title
     style.title.add_face(TextFace("Close isolates of " + targetPD, fsize=20), column=0)
-    t.render("mytree.png", tree_style=style)
+    t.render("mytree.png", tree_style=style, dpi = 200)
 
 def find_target(name, tree):
     for node in tree.traverse("postorder"):
@@ -126,7 +146,7 @@ def find_close(name0,tree):
         # if dist not in dist_dict:
         #     dist_dict[dist] = node.name
 
-    
+        
         dist_dict[dist].append(node.name)
         
 
@@ -137,6 +157,39 @@ def find_close(name0,tree):
             l.extend(dist_dict[key] )
     
     return l
+
+def findSRR(l_PDT, metafile):
+   
+    # for pdt in l_PDT[1:21]:
+    #     cmd3 += " || " + "$42 =="+ "\"" + pdt + "\""
+
+
+    cmd1 = "awk -F '\t' "
+    cmd2 = " { print $9, $42 }' " + metafile
+    cmd3 = "'" + "$42 == "+ '"' + l_PDT[0] + '"'
+    for pdt in l_PDT[1:11]:
+        cmd3 += " || "+"$42 == "+ '"' + pdt + '"'
+
+    f = open("matching.txt", "w+")
+    args =  cmd1 + cmd3 + cmd2
+    final_args= shlex.split(args)
+    try:
+        proc = subprocess.call(final_args,stdout=f)
+        # proc.wait()
+        # (stdout, stderr) = proc.communicate()
+    except CalledProcessError as err:
+        print("Error ocurred: " + err.stderr)
+
+    match = open('matching.txt', 'r')
+    Lines = match.readlines()
+    l_SRR={}
+    for line in Lines:
+        line = line.strip()
+        key = line.split(" ")[1] 
+        l_SRR[key] = line.split(" ")[0]
+
+    match.close()
+    return l_SRR
 
 
 def waitUntil(driver, by, xpath):
@@ -162,6 +215,8 @@ def parse_cmdline_params(arg_list):
                                     help="SRR number need to be searched")
         options_parser.add_argument('--folders', dest='folders', type=str, required=True,
                                     help="Destination folder to download")
+        options_parser.add_argument('--file', dest='file', type=str, required=True,
+                                    help="meta")
         opts = options_parser.parse_args(args=arg_list)
         return opts
 
