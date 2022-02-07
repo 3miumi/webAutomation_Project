@@ -29,7 +29,7 @@ def main(args):
     options.add_experimental_option("prefs",prefs)
     
     driver = webdriver.Chrome(chrome_options=options)
-    driver.set_window_position(-10000,0)
+    # driver.set_window_position(-10000,0)
     driver.get(PATH)
     # find the searchbox
     searchbox = driver.find_element(By.XPATH,'//*[@id="main-isolates-search-field"]')
@@ -159,10 +159,6 @@ def find_close(name0,tree):
     return l
 
 def findSRR(l_PDT, metafile):
-   
-    # for pdt in l_PDT[1:21]:
-    #     cmd3 += " || " + "$42 =="+ "\"" + pdt + "\""
-
 
     cmd1 = "awk -F '\t' "
     cmd2 = " { print $9, $42 }' " + metafile
@@ -185,9 +181,7 @@ def findSRR(l_PDT, metafile):
     l_SRR={}
     matched_SRR = open('matching_SRR.txt', 'w')
     for line in Lines:
-        if line.split(" ")[0] != "NULL":
-            matched_SRR.write(line.split(" ")[0] + "\n")
-
+        matched_SRR.write(line.split(" ")[0] + "\n")
         line = line.strip()
         key = line.split(" ")[1] 
         l_SRR[key] = line.split(" ")[0]
